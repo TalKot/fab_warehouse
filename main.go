@@ -20,25 +20,17 @@ type Warehouse struct {
 }
 
 func (w *Warehouse) Initialize() {
-	m := &Product{Name: "Milk", Amount: 10}
-	w.Area[5][6] = m
-	b := &Product{Name: "Bread", Amount: 10}
-	w.Area[1][5] = b
-	s := &Product{Name: "Salt", Amount: 10}
-	w.Area[6][5] = s
+	milk := &Product{Name: "Milk", Amount: 10}
+	w.Area[5][6] = milk
+	bread := &Product{Name: "Bread", Amount: 10}
+	w.Area[1][5] = bread
+	salt := &Product{Name: "Salt", Amount: 10}
+	w.Area[6][5] = salt
 	soap := &Product{Name: "Soap", Amount: 10}
 	w.Area[8][9] = soap
 	pasta := &Product{Name: "Pasta", Amount: 10}
 	w.Area[9][2] = pasta
-	w.Products = append(w.Products, m, b, s, soap, pasta)
-}
-
-func (w *Warehouse) Order() {
-
-}
-
-func (w *Warehouse) Supply() {
-
+	w.Products = append(w.Products, milk, bread, salt, soap, pasta)
 }
 
 type Product struct {
@@ -54,12 +46,12 @@ type Robot struct {
 
 func (r *Robot) PickFromStock() {
 	// do something..
-	// r.AlertWarehouse({"asdf " : "asdf"})
+	// r.AlertWarehouse({"event " : "something_else"})
 }
 
 func (r *Robot) PutToStock() {
 	// do something..
-	// r.AlertWarehouse({"asdf " : "asdf"})
+	// r.AlertWarehouse({"event " : "something"})
 }
 
 func (r *Robot) AlertWarehouse(event map[string]string) {
@@ -96,24 +88,41 @@ func (a *Actions) ActionComplete(id int) error {
 		return nil
 	}
 
-	//handle somehing...
+	//handle error somehow...
 	return errors.New("Could not find task")
+}
+func (a *Actions) GetUniqueID() int {
+	a.Counter++
+	return a.Counter
 }
 
 func (a *Actions) UpdateOrders(s []string) {
-	for _, n := range s {
-		a.Counter++
-		p := &Product{Name: n, Amount: 1}
-		task := &Task{Item: p, ID: a.Counter, StatusOpen: true}
+	for _, name := range s {
+
+		id := a.GetUniqueID()
+		task := &Task{
+			Item: &Product{
+				Name:   name,
+				Amount: 1,
+			},
+			ID:         id,
+			StatusOpen: true,
+		}
 		a.Order[a.Counter] = task
 	}
 }
 
 func (a *Actions) UpdateSupplies(s []string) {
-	for _, n := range s {
-		a.Counter++
-		p := &Product{Name: n, Amount: 1}
-		task := &Task{Item: p, ID: a.Counter, StatusOpen: true}
+	for _, name := range s {
+		id := a.GetUniqueID()
+		task := &Task{
+			Item: &Product{
+				Name:   name,
+				Amount: 1,
+			},
+			ID:         id,
+			StatusOpen: true,
+		}
 		a.Supply[a.Counter] = task
 	}
 }
@@ -188,7 +197,7 @@ func main() {
 			fmt.Println("Error : ", err)
 			c.JSON(http.StatusBadRequest, gin.H{
 				"Message": err.Error(),
-				"Task_ID": taskID,
+				"TaskID":  taskID,
 			})
 		}
 
@@ -196,21 +205,55 @@ func main() {
 		if ActionErr != nil {
 			c.JSON(http.StatusBadRequest, gin.H{
 				"Message": err.Error(),
-				"Task_ID": taskID,
+				"TaskID":  taskID,
 			})
 			return
 		}
 
 		c.JSON(http.StatusOK, gin.H{
 			"Message": "Update Item Completed Successfully",
-			"Task_ID": taskID,
+			"TaskID":  taskID,
 		})
 	})
 
 	router.GET("/next-tasks", func(c *gin.Context) {
-		// for i, n := range actions.Order {
+		type data struct {
+			ID       int
+			Action   string
+			Product  string
+			Location [][]int
+		}
 
-		// }
+		var DataRes []data
+
+		for _, n := range actions.Order {
+			if n.StatusOpen == true {
+				DataRes = append(DataRes, data{
+					ID:      n.ID,
+					Action:  "put_to_stock",
+					Product: n.Item.Name,
+					// location: [1][1]
+
+				})
+			}
+		}
+
+		for _, n := range actions.Supply {
+			if n.StatusOpen == true {
+				DataRes = append(DataRes, data{
+					ID:      n.ID,
+					Action:  "pick_from_stock",
+					Product: n.Item.Name,
+					// location: [1][1]
+
+				})
+			}
+		}
+
+		c.JSON(http.StatusOK, gin.H{
+			"data": DataRes,
+		})
+
 	})
 
 	router.GET("/stock", func(c *gin.Context) {
